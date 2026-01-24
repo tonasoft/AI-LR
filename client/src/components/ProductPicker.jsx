@@ -7,41 +7,41 @@ export default function ProductPicker({ onImageSelected }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleFetch = async (e) => {
+  const handleUseImage = (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    if (!url.trim()) {
+      setError("Enter a garment image URL");
+      return;
+    }
+    // Validate it's a URL
     try {
-      const resp = await fetch(`${API_BASE}/api/product-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      if (!resp.ok) throw new Error("Failed to fetch product image");
-      const data = await resp.json();
-      onImageSelected(data.imageUrl);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      new URL(url);
+      setError(""); // Clear error before attempting
+      onImageSelected(url);
+      setUrl("");
+    } catch {
+      setError("Invalid URL format");
     }
   };
 
   return (
     <div className="tab-content">
-      <form onSubmit={handleFetch}>
+      <form onSubmit={handleUseImage}>
         <div className="form-group">
-          <label>Product URL (Amazon or any store)</label>
+          <label>Garment Image URL</label>
           <input
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://www.amazon.com/…"
+            placeholder="https://example.com/garment.jpg"
             required
           />
+          <small style={{ color: "#94a3b8", marginTop: "4px" }}>
+            Use CORS-enabled URLs (most public images work). Examples: via.placeholder.com, imgur.com direct links, or your own server.
+          </small>
         </div>
         <button type="submit" className="btn" disabled={loading}>
-          {loading ? "Fetching…" : "Use This Product Image"}
+          {loading ? "Adding…" : "Add to Try-On"}
         </button>
       </form>
       {error && <div className="alert alert-error">{error}</div>}

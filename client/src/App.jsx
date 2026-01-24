@@ -32,6 +32,7 @@ export default function App() {
     garmentType: "upper_body",
   });
   const [tryOnResult, setTryOnResult] = useState(null);
+  const [tryOnResultImage, setTryOnResultImage] = useState(null);
 
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
@@ -142,7 +143,7 @@ export default function App() {
               onTryOnChange={handleTryOnChange}
               onSubmit={handleTryOnSubmit}
             />
-            <ResultBox result={tryOnResult} />
+            <ResultBox result={tryOnResult} onResultImageUpdate={setTryOnResultImage} />
           </div>
         )}
 
@@ -153,8 +154,8 @@ export default function App() {
 
       <div className="right-pane">
         <div className="viewer-card">
-          <ThreeViewer imageUrl={profileData.imageUrl || tryOnData.garmentImageUrl} />
-          <p className="small muted">Full-page 3D preview. Drop in your photo to see it here.</p>
+          <ThreeViewer imageUrl={tryOnResultImage || profileData.imageUrl || tryOnData.garmentImageUrl} />
+          <p className="small muted">{tryOnResultImage ? "Try-on result" : "3D preview. Upload your photo to see it here."}</p>
         </div>
       </div>
     </div>
