@@ -16,8 +16,17 @@ export default function ThreeViewer({ imageUrl }) {
     camera.position.z = 2.5;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(240, 240);
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
+
+    const setSize = () => {
+      const width = mount.clientWidth || 480;
+      const height = mount.clientHeight || 480;
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio || 1);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    };
+
+    setSize();
     mount.appendChild(renderer.domElement);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -40,7 +49,10 @@ export default function ThreeViewer({ imageUrl }) {
     };
     animate();
 
+    window.addEventListener("resize", setSize);
+
     return () => {
+      window.removeEventListener("resize", setSize);
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
@@ -67,9 +79,9 @@ export default function ThreeViewer({ imageUrl }) {
   }, [imageUrl]);
 
   return (
-    <div>
+    <div className="viewer-shell">
       <p className="small">3D Preview (beta)</p>
-      <div ref={mountRef} />
+      <div className="viewer-mount" ref={mountRef} />
     </div>
   );
 }

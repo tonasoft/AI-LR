@@ -6,6 +6,8 @@ import ProfileForm from "./components/ProfileForm.jsx";
 import ProfileSummary from "./components/ProfileSummary.jsx";
 import TryOnForm from "./components/TryOnForm.jsx";
 import ResultBox from "./components/ResultBox.jsx";
+import ProductPicker from "./components/ProductPicker.jsx";
+import ThreeViewer from "./components/ThreeViewer.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
@@ -94,61 +96,67 @@ export default function App() {
   };
 
   return (
-    <div className="container">
-      <header>
-        <h1>ExpressFit</h1>
-        <p>Personalized outfit try-on with 3D preview</p>
-      </header>
+    <div className="app-shell">
+      <div className="left-pane">
+        <header>
+          <h1>ExpressFit</h1>
+          <p>Personalized outfit try-on with 3D preview</p>
+        </header>
 
-      <Alert type="error">{error}</Alert>
-      <Alert type="success">{successMsg}</Alert>
+        <Alert type="error">{error}</Alert>
+        <Alert type="success">{successMsg}</Alert>
 
-      <Tabs active={currentTab} onChange={setCurrentTab} />
+        <Tabs active={currentTab} onChange={setCurrentTab} />
 
-      {currentTab === "profile" && (
-        <div className="tab-content">
-          <ProfileForm
-            userId={userId}
-            profileData={profileData}
-            loading={loading}
-            onUserIdChange={setUserId}
-            onProfileChange={handleProfileChange}
-            onSubmit={handleProfileSubmit}
-          />
-          <div style={{ marginTop: 16 }}>
-            <ThreeViewer imageUrl={profileData.imageUrl} />
+        {currentTab === "profile" && (
+          <div className="tab-content">
+            <ProfileForm
+              userId={userId}
+              profileData={profileData}
+              loading={loading}
+              onUserIdChange={setUserId}
+              onProfileChange={handleProfileChange}
+              onSubmit={handleProfileSubmit}
+            />
+
+            {userProfile && (
+              <div className="profile-summary">
+                <h3>✅ Profile Saved</h3>
+                <p>Age: {userProfile.age}</p>
+                <p>Weight: {userProfile.weight} lbs</p>
+                <p>Body Shape: {userProfile.bodyShape}</p>
+                <p>Height: {userProfile.height}</p>
+                <p>Ready to try outfits! →</p>
+              </div>
+            )}
           </div>
+        )}
 
-          {userProfile && (
-            <div className="profile-summary">
-              <h3>✅ Profile Saved</h3>
-              <p>Age: {userProfile.age}</p>
-              <p>Weight: {userProfile.weight} kg</p>
-              <p>Body Shape: {userProfile.bodyShape}</p>
-              <p>Height: {userProfile.height}</p>
-              <p>Ready to try outfits! →</p>
-            </div>
-          )}
+        {currentTab === "tryon" && (
+          <div className="tab-content">
+            <ProductPicker onImageSelected={(img) => setTryOnData((p) => ({ ...p, garmentImageUrl: img }))} />
+            <TryOnForm
+              userProfile={userProfile}
+              tryOnData={tryOnData}
+              loading={loading}
+              onTryOnChange={handleTryOnChange}
+              onSubmit={handleTryOnSubmit}
+            />
+            <ResultBox result={tryOnResult} />
+          </div>
+        )}
+
+        <footer>
+          <p>Powered by Magic Hour AI</p>
+        </footer>
+      </div>
+
+      <div className="right-pane">
+        <div className="viewer-card">
+          <ThreeViewer imageUrl={profileData.imageUrl || tryOnData.garmentImageUrl} />
+          <p className="small muted">Full-page 3D preview. Drop in your photo to see it here.</p>
         </div>
-      )}
-
-      {currentTab === "tryon" && (
-        <div className="tab-content">
-          <ProductPicker onImageSelected={(img) => setTryOnData((p) => ({ ...p, garmentImageUrl: img }))} />
-          <TryOnForm
-            userProfile={userProfile}
-            tryOnData={tryOnData}
-            loading={loading}
-            onTryOnChange={handleTryOnChange}
-            onSubmit={handleTryOnSubmit}
-          />
-          <ResultBox result={tryOnResult} />
-        </div>
-      )}
-
-      <footer>
-        <p>Powered by Magic Hour AI</p>
-      </footer>
+      </div>
     </div>
   );
 }
