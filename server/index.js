@@ -52,15 +52,21 @@ app.get("/api/profile/:userId", (req, res) => {
 });
 
 app.post("/api/try-on", async (req, res) => {
-  const { userId, garmentImageUrl, garmentType = "upper_body" } = req.body;
+  const { personImageUrl, garmentImageUrl, garmentType = "upper_body", userId } = req.body;
 
-  if (!userId || !garmentImageUrl) {
-    return res.status(400).json({ error: "Missing userId or garmentImageUrl" });
+  // Allow quick try-on with just personImageUrl + garmentImageUrl, OR use saved profile if userId provided
+  let personUrl = personImageUrl;
+  
+  if (!personUrl && userId) {
+    const userProfile = userProfiles.get(userId);
+    if (!userProfile || !userProfile.imageUrl) {
+      return res.status(400).json({ error: "User profile not found. Provide personImageUrl or create a profile first." });
+    }
+    personUrl = userProfile.imageUrl;
   }
 
-  const userProfile = userProfiles.get(userId);
-  if (!userProfile || !userProfile.imageUrl) {
-    return res.status(400).json({ error: "User profile or image not found. Create profile first." });
+  if (!personUrl || !garmentImageUrl) {
+    return res.status(400).json({ error: "Missing personImageUrl or garmentImageUrl" });
   }
 
   if (!magicHourApiKey) {
@@ -112,7 +118,7 @@ app.post("/api/try-on", async (req, res) => {
     };
 
     // Prepare assets
-    const personAsset = await downloadImage(userProfile.imageUrl);
+    const personAsset = await downloadImage(personUrl);
     const garmentAsset = await downloadImage(garmentImageUrl);
 
     const personFilePath = await uploadToMagicHour(
@@ -139,7 +145,7 @@ app.post("/api/try-on", async (req, res) => {
           garment_file_path: garmentFilePath,
           garment_type: garmentType,
         },
-        name: `${userProfile.userId} - ${garmentType} try-on`,
+        name: `Try-on: ${garmentType}`,
       }),
     });
 
@@ -155,12 +161,9 @@ app.post("/api/try-on", async (req, res) => {
       message: "Try-on generation started",
       jobId: result.id,
       creditsCharged: result.credits_charged,
-      userProfile: {
-        age: userProfile.age,
-        bodyShape: userProfile.bodyShape,
-        height: userProfile.height,
-      },
       garmentType,
+      shareUrl: `${process.env.APP_URL || "http://localhost:5173"}/?result=${result.id}`,
+      magicHourUrl: `https://magichour.ai?ref=expressfit`,
     });
   } catch (error) {
     console.error("Error calling Magic Hour API:", error);
@@ -188,7 +191,18 @@ app.get("/api/try-on/:jobId", async (req, res) => {
     }
 
     const result = await response.json();
-    return res.json(result);
+    
+    // Extract image from result
+    let imageUrl = null;
+    if (result.output && result.output.images) {
+      imageUrl = Array.isArray(result.output.images) ? result.output.images[0] : result.output.images;
+    }
+
+    return res.json({
+      ...result,
+      imageUrl,
+      magicHourUrl: `https://magichour.ai?ref=expressfit`,
+    });
   } catch (error) {
     console.error("Error fetching try-on status:", error);
     return res.status(500).json({ error: "Failed to fetch status" });

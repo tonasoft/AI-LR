@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./styles.css";
 import Alert from "./components/Alert.jsx";
+import QuickTryOn from "./components/QuickTryOn.jsx";
 import Tabs from "./components/Tabs.jsx";
 import ProfileForm from "./components/ProfileForm.jsx";
 import ProfileSummary from "./components/ProfileSummary.jsx";
@@ -12,7 +13,7 @@ import ThreeViewer from "./components/ThreeViewer.jsx";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState("profile");
+  const [currentTab, setCurrentTab] = useState("quick");
   const [userId, setUserId] = useState("");
   const [profileData, setProfileData] = useState({
     age: "",
@@ -82,7 +83,11 @@ export default function App() {
       const response = await fetch(`${API_BASE}/api/try-on`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: userProfile.userId, ...tryOnData }),
+        body: JSON.stringify({
+          personImageUrl: userProfile.imageUrl,
+          garmentImageUrl: tryOnData.garmentImageUrl,
+          garmentType: tryOnData.garmentType,
+        }),
       });
 
       if (!response.ok) throw new Error("Try-on generation failed");
@@ -100,14 +105,16 @@ export default function App() {
     <div className="app-shell">
       <div className="left-pane">
         <header>
-          <h1>ExpressFit</h1>
-          <p>Personalized outfit try-on with 3D preview</p>
+          <h1>✨ ExpressFit</h1>
+          <p>See yourself in any outfit instantly</p>
         </header>
 
         <Alert type="error">{error}</Alert>
         <Alert type="success">{successMsg}</Alert>
 
         <Tabs active={currentTab} onChange={setCurrentTab} />
+
+        {currentTab === "quick" && <QuickTryOn />}
 
         {currentTab === "profile" && (
           <div className="tab-content">
@@ -148,7 +155,12 @@ export default function App() {
         )}
 
         <footer>
-          <p>Powered by Magic Hour AI</p>
+          <p>
+            Powered by{" "}
+            <a href="https://magichour.ai?ref=expressfit" target="_blank" rel="noopener noreferrer">
+              Magic Hour AI
+            </a>
+          </p>
         </footer>
       </div>
 

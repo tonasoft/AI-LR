@@ -4,16 +4,22 @@ export default function Tabs({ active, onChange }) {
   return (
     <div className="tabs">
       <button
+        className={`tab-btn ${active === "quick" ? "active" : ""}`}
+        onClick={() => onChange("quick")}
+      >
+        ⚡ Quick Try-On
+      </button>
+      <button
         className={`tab-btn ${active === "profile" ? "active" : ""}`}
         onClick={() => onChange("profile")}
       >
-        My Profile
+        👤 My Profile
       </button>
       <button
         className={`tab-btn ${active === "tryon" ? "active" : ""}`}
         onClick={() => onChange("tryon")}
       >
-        Try-On
+        👗 Try-On
       </button>
     </div>
   );
