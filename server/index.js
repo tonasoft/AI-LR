@@ -2,7 +2,6 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { load } from "cheerio";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,7 +9,7 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
+const magicHourApiKey = process.env.MAGIC_HOUR_API_KEY;
 
 const getMetadata = async (url) => {
   const controller = new AbortController();
@@ -42,19 +41,6 @@ const getMetadata = async (url) => {
   }
 };
 
-const buildPrompt = (title, description) => `You are a clever startup roast comedian.
-Given this product:
-Title: ${title}
-Description: ${description}
-
-Generate:
-1. A funny but playful roast (max 60 words)
-2. A sharp punchline (1 sentence)
-3. A hook line for a 10–15 second vertical reel
-4. A viral caption suitable for Twitter or Product Hunt
-
-Tone: sarcastic, witty, not hateful.`;
-
 app.post("/api/preview", async (req, res) => {
   const { url } = req.body;
 
@@ -71,26 +57,112 @@ app.post("/api/preview", async (req, res) => {
 });
 
 app.post("/api/roast", async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, style } = req.body;
 
   if (!title || !description) {
     return res.status(400).json({ error: "Missing title or description" });
   }
 
-  if (!geminiApiKey) {
-    return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+  if (!magicHourApiKey) {
+    console.log('Magic Hour API key not found');
+    return res.status(500).json({ error: "Missing MAGIC_HOUR_API_KEY" });
   }
 
   try {
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = buildPrompt(title, description);
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    let prompt;
+    switch (style) {
+      case "roast":
+        prompt = `Generate an image of a hilarious meme roasting the product "${title}" with description "${description}". The meme must have English text only, no other languages. Make it funny and viral.`;
+        break;
+      case "distracted":
+        prompt = `Generate an image of a Distracted Boyfriend meme where the boyfriend is labeled "${title}", the girlfriend is "Boring Products", and the other girl is "${description}". All text in the image must be in English. Make it humorous.`;
+        break;
+      case "drake":
+        prompt = `Generate an image of a Drake Hotline Bling meme where Drake disapproves of "${title}" and approves of something better related to "${description}". All captions must be in English. Make it funny.`;
+        break;
+      case "success":
+        prompt = `Generate an image of a Success Kid meme where the kid is celebrating the success of "${title}" with "${description}". All text must be in English. Make it sarcastically funny.`;
+        break;
+      case "expanding":
+        prompt = `Generate an image of an Expanding Brain meme showing the evolution of understanding "${title}" with "${description}". All text in the meme must be in English. Make it clever and funny.`;
+        break;
+      default:
+        prompt = `Generate a funny meme image about "${title}" - "${description}". Ensure all text is in English.`;
+    }
 
-    return res.json({ text });
+    // Start the text-to-image job
+    const body = {
+      image_count: 1,
+      orientation: "square",
+      style: {
+        prompt
+      },
+      name: "Roast Meme"
+    };
+    console.log('Sending request body:', JSON.stringify(body, null, 2));
+    const createResponse = await fetch('https://api.magichour.ai/v1/ai-image-generator', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${magicHourApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error("Magic Hour API error response:", errorText);
+      throw new Error(`Magic Hour API error: ${createResponse.status}`);
+    }
+
+    const job = await createResponse.json();
+    console.log("Job created:", job);
+    const jobId = job.id;
+
+    // Poll for completion
+    let status = 'pending';
+    let imageUrl = null;
+    const maxPolls = 30; // 30 seconds max
+    let polls = 0;
+
+    while (status !== 'complete' && polls < maxPolls) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // wait 1s
+
+      const statusResponse = await fetch(`https://api.magichour.ai/v1/image-projects/${jobId}`, {
+        headers: {
+          'Authorization': `Bearer ${magicHourApiKey}`
+        }
+      });
+
+      if (statusResponse.ok) {
+        const jobStatus = await statusResponse.json();
+        console.log("Full job status:", jobStatus);
+        status = jobStatus.status;
+        console.log(`Job ${jobId} status: ${status}`);
+        if (status === 'complete') {
+          if (jobStatus.downloads && jobStatus.downloads.length > 0) {
+            imageUrl = jobStatus.downloads[0].url;
+          }
+        } else if (status === 'error') {
+          throw new Error(`Job failed: ${jobStatus.error || 'Unknown error'}`);
+        }
+      } else {
+        console.error(`Failed to get job status: ${statusResponse.status}`);
+        const errorText = await statusResponse.text();
+        console.error("Status error response:", errorText);
+      }
+
+      polls++;
+    }
+
+    if (!imageUrl) {
+      throw new Error('Meme generation timed out');
+    }
+
+    return res.json({ imageUrl: imageUrl, shareUrl: `${imageUrl}?ref=ai-launch-roast` });
   } catch (error) {
-    return res.status(500).json({ error: "Gemini request failed" });
+    console.error("Magic Hour error:", error);
+    return res.status(500).json({ error: error.message || "Meme generation failed" });
   }
 });
 

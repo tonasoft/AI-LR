@@ -5,14 +5,9 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 const emptyResult = {
   title: "",
   description: "",
-  lines: []
+  imageUrl: "",
+  shareUrl: ""
 };
-
-const parseLines = (text) =>
-  text
-    .split(/\n+/)
-    .map((line) => line.replace(/^\s*\d+[\).:-]?\s*/, "").trim())
-    .filter(Boolean);
 
 export default function App() {
   const [url, setUrl] = useState("");
@@ -21,6 +16,7 @@ export default function App() {
   const [title, setTitle] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [selectedStyle, setSelectedStyle] = useState("roast");
   const [result, setResult] = useState(emptyResult);
 
   const canSubmit = useMemo(() => {
@@ -59,7 +55,8 @@ export default function App() {
     });
 
     if (!response.ok) {
-      throw new Error("roast_failed");
+      const errorText = await response.text();
+      throw new Error(errorText || "Roast request failed");
     }
 
     return response.json();
@@ -95,14 +92,14 @@ export default function App() {
 
       const roast = await requestRoast({
         title: resolvedTitle,
-        description: resolvedDescription
+        description: resolvedDescription,
+        style: selectedStyle
       });
 
-      const lines = parseLines(roast.text || "");
-      setResult({ title: resolvedTitle, description: resolvedDescription, lines });
+      setResult({ title: resolvedTitle, description: resolvedDescription, imageUrl: roast.imageUrl, shareUrl: roast.shareUrl });
       setStatus("success");
     } catch (err) {
-      setError("We hit turbulence. Try again or paste a description.");
+      setError("Generation failed. Try again or paste a description.");
       setStatus("error");
       if (!title) {
         setTitle(url);
@@ -112,32 +109,30 @@ export default function App() {
   };
 
   const handleCopy = async () => {
-    const text = result.lines.join("\n");
-    if (!text) {
+    if (!result.shareUrl) {
       return;
     }
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(result.shareUrl);
   };
 
   const handleDownload = () => {
-    const text = result.lines.join("\n");
-    const blob = new Blob([text || "AI Launch Roast"], { type: "text/plain" });
-    const urlObject = URL.createObjectURL(blob);
+    if (!result.imageUrl) {
+      return;
+    }
     const link = document.createElement("a");
-    link.href = urlObject;
-    link.download = "ai-launch-roast.txt";
+    link.href = result.imageUrl;
+    link.download = "product-roast-meme.jpg";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(urlObject);
   };
 
   return (
     <div className="app">
       <header className="hero">
         <p className="badge">Hackathon Drop</p>
-        <h1>AI Launch Roast</h1>
-        <p>Give your launch the roast it deserves in 15 seconds or less.</p>
+        <h1>AI Product Meme Roast</h1>
+        <p>Turn any product into a hilarious meme roast in under 30 seconds.</p>
       </header>
 
       <form className="card" onSubmit={handleSubmit}>
@@ -171,37 +166,46 @@ export default function App() {
 
         {error && <p className="error">{error}</p>}
 
+        <label htmlFor="style">Choose Meme Style</label>
+        <select
+          id="style"
+          value={selectedStyle}
+          onChange={(event) => setSelectedStyle(event.target.value)}
+        >
+          <option value="roast">Classic Roast</option>
+          <option value="distracted">Distracted Boyfriend</option>
+          <option value="drake">Drake Hotline Bling</option>
+          <option value="success">Success Kid</option>
+          <option value="expanding">Expanding Brain</option>
+        </select>
+
         <button type="submit" disabled={!canSubmit || status === "loading"}>
-          {status === "loading" ? "Roasting..." : "Roast Me"}
+          {status === "loading" ? "Generating Meme..." : "Generate Meme"}
         </button>
       </form>
 
       <section className="result">
         <div className="reel">
-          {result.lines.length === 0 ? (
+          {!result.imageUrl ? (
             <div className="placeholder">
-              <p>✨ Your roast will land here.</p>
-              <p>Make it viral. Keep it spicy.</p>
+              <p>Your roast meme will appear here.</p>
+              <p>Share the laughs!</p>
             </div>
           ) : (
-            result.lines.map((line, index) => (
-              <p
-                key={`${line}-${index}`}
-                className="reveal"
-                style={{ animationDelay: `${index * 0.2}s` }}
-              >
-                {line}
-              </p>
-            ))
+            <img
+              src={result.imageUrl}
+              alt="Roast Meme"
+              style={{ width: '100%', height: 'auto', borderRadius: '20px' }}
+            />
           )}
         </div>
 
         <div className="actions">
-          <button type="button" onClick={handleCopy} disabled={!result.lines.length}>
-            Copy Text
+          <button type="button" onClick={handleCopy} disabled={!result.imageUrl}>
+            Copy Share Link
           </button>
-          <button type="button" onClick={handleDownload} disabled={!result.lines.length}>
-            Download Placeholder
+          <button type="button" onClick={handleDownload} disabled={!result.imageUrl}>
+            Download Meme
           </button>
         </div>
       </section>
