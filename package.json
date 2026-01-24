@@ -1,5 +1,5 @@
 {
-  "name": "ai-launch-roast",
+  "name": "expressfit",
   "private": true,
   "workspaces": ["client", "server"],
   "scripts": {

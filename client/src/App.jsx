@@ -1,210 +1,154 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import "./styles.css";
+import Alert from "./components/Alert.jsx";
+import Tabs from "./components/Tabs.jsx";
+import ProfileForm from "./components/ProfileForm.jsx";
+import ProfileSummary from "./components/ProfileSummary.jsx";
+import TryOnForm from "./components/TryOnForm.jsx";
+import ResultBox from "./components/ResultBox.jsx";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-const emptyResult = {
-  title: "",
-  description: "",
-  lines: []
-};
-
-const parseLines = (text) =>
-  text
-    .split(/\n+/)
-    .map((line) => line.replace(/^\s*\d+[\).:-]?\s*/, "").trim())
-    .filter(Boolean);
-
 export default function App() {
-  const [url, setUrl] = useState("");
-  const [manualDescription, setManualDescription] = useState("");
-  const [needsDescription, setNeedsDescription] = useState(false);
-  const [title, setTitle] = useState("");
-  const [status, setStatus] = useState("idle");
+  const [currentTab, setCurrentTab] = useState("profile");
+  const [userId, setUserId] = useState("");
+  const [profileData, setProfileData] = useState({
+    age: "",
+    weight: "",
+    bodyShape: "apple",
+    height: "",
+    skinTone: "medium",
+    imageUrl: "",
+  });
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState(emptyResult);
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const canSubmit = useMemo(() => {
-    if (!url.trim()) {
-      return false;
-    }
-    if (needsDescription) {
-      return manualDescription.trim().length > 0;
-    }
-    return true;
-  }, [manualDescription, needsDescription, url]);
+  const [tryOnData, setTryOnData] = useState({
+    garmentImageUrl: "",
+    garmentType: "upper_body",
+  });
+  const [tryOnResult, setTryOnResult] = useState(null);
 
-  const resetOutput = () => {
-    setResult(emptyResult);
+  const handleProfileChange = (e) => {
+    const { name, value } = e.target;
+    setProfileData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const requestPreview = async () => {
-    const response = await fetch(`${API_BASE}/api/preview`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url })
-    });
-
-    if (!response.ok) {
-      throw new Error("preview_failed");
-    }
-
-    return response.json();
-  };
-
-  const requestRoast = async (payload) => {
-    const response = await fetch(`${API_BASE}/api/roast`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error("roast_failed");
-    }
-
-    return response.json();
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     setError("");
-    resetOutput();
+    setSuccessMsg("");
 
     try {
-      setStatus("loading");
-
-      let resolvedTitle = title;
-      let resolvedDescription = "";
-
-      if (!needsDescription) {
-        const preview = await requestPreview();
-        resolvedTitle = preview.title || url;
-        resolvedDescription = preview.description || "";
-
-        setTitle(resolvedTitle);
-
-        if (!resolvedDescription) {
-          setNeedsDescription(true);
-          setStatus("idle");
-          return;
-        }
-      } else {
-        resolvedTitle = title || url;
-        resolvedDescription = manualDescription.trim();
-      }
-
-      const roast = await requestRoast({
-        title: resolvedTitle,
-        description: resolvedDescription
+      const response = await fetch(`${API_BASE}/api/profile`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, ...profileData }),
       });
 
-      const lines = parseLines(roast.text || "");
-      setResult({ title: resolvedTitle, description: resolvedDescription, lines });
-      setStatus("success");
+      if (!response.ok) throw new Error("Failed to create profile");
+      const data = await response.json();
+      setUserProfile(data.profile);
+      setSuccessMsg("Profile created successfully!");
     } catch (err) {
-      setError("We hit turbulence. Try again or paste a description.");
-      setStatus("error");
-      if (!title) {
-        setTitle(url);
-      }
-      setNeedsDescription(true);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCopy = async () => {
-    const text = result.lines.join("\n");
-    if (!text) {
+  const handleTryOnChange = (e) => {
+    const { name, value } = e.target;
+    setTryOnData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleTryOnSubmit = async (e) => {
+    e.preventDefault();
+    if (!userProfile) {
+      setError("Please create a profile first");
       return;
     }
-    await navigator.clipboard.writeText(text);
-  };
 
-  const handleDownload = () => {
-    const text = result.lines.join("\n");
-    const blob = new Blob([text || "AI Launch Roast"], { type: "text/plain" });
-    const urlObject = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = urlObject;
-    link.download = "ai-launch-roast.txt";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(urlObject);
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_BASE}/api/try-on`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: userProfile.userId, ...tryOnData }),
+      });
+
+      if (!response.ok) throw new Error("Try-on generation failed");
+      const data = await response.json();
+      setTryOnResult(data);
+      setSuccessMsg(`Try-on started! Job ID: ${data.jobId}`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="app">
-      <header className="hero">
-        <p className="badge">Hackathon Drop</p>
-        <h1>AI Launch Roast</h1>
-        <p>Give your launch the roast it deserves in 15 seconds or less.</p>
+    <div className="container">
+      <header>
+        <h1>ExpressFit</h1>
+        <p>Personalized outfit try-on with 3D preview</p>
       </header>
 
-      <form className="card" onSubmit={handleSubmit}>
-        <label htmlFor="url">Product or Product Hunt URL</label>
-        <input
-          id="url"
-          type="url"
-          placeholder="https://yourstartup.com"
-          value={url}
-          onChange={(event) => {
-            setUrl(event.target.value);
-            setNeedsDescription(false);
-            setManualDescription("");
-          }}
-          required
-        />
+      <Alert type="error">{error}</Alert>
+      <Alert type="success">{successMsg}</Alert>
 
-        {needsDescription && (
-          <div className="manual">
-            <label htmlFor="description">Describe your product</label>
-            <textarea
-              id="description"
-              placeholder="Give us the highlights, quickly."
-              rows={4}
-              value={manualDescription}
-              onChange={(event) => setManualDescription(event.target.value)}
-              required
-            />
+      <Tabs active={currentTab} onChange={setCurrentTab} />
+
+      {currentTab === "profile" && (
+        <div className="tab-content">
+          <ProfileForm
+            userId={userId}
+            profileData={profileData}
+            loading={loading}
+            onUserIdChange={setUserId}
+            onProfileChange={handleProfileChange}
+            onSubmit={handleProfileSubmit}
+          />
+          <div style={{ marginTop: 16 }}>
+            <ThreeViewer imageUrl={profileData.imageUrl} />
           </div>
-        )}
 
-        {error && <p className="error">{error}</p>}
-
-        <button type="submit" disabled={!canSubmit || status === "loading"}>
-          {status === "loading" ? "Roasting..." : "Roast Me"}
-        </button>
-      </form>
-
-      <section className="result">
-        <div className="reel">
-          {result.lines.length === 0 ? (
-            <div className="placeholder">
-              <p>✨ Your roast will land here.</p>
-              <p>Make it viral. Keep it spicy.</p>
+          {userProfile && (
+            <div className="profile-summary">
+              <h3>✅ Profile Saved</h3>
+              <p>Age: {userProfile.age}</p>
+              <p>Weight: {userProfile.weight} kg</p>
+              <p>Body Shape: {userProfile.bodyShape}</p>
+              <p>Height: {userProfile.height}</p>
+              <p>Ready to try outfits! →</p>
             </div>
-          ) : (
-            result.lines.map((line, index) => (
-              <p
-                key={`${line}-${index}`}
-                className="reveal"
-                style={{ animationDelay: `${index * 0.2}s` }}
-              >
-                {line}
-              </p>
-            ))
           )}
         </div>
+      )}
 
-        <div className="actions">
-          <button type="button" onClick={handleCopy} disabled={!result.lines.length}>
-            Copy Text
-          </button>
-          <button type="button" onClick={handleDownload} disabled={!result.lines.length}>
-            Download Placeholder
-          </button>
+      {currentTab === "tryon" && (
+        <div className="tab-content">
+          <ProductPicker onImageSelected={(img) => setTryOnData((p) => ({ ...p, garmentImageUrl: img }))} />
+          <TryOnForm
+            userProfile={userProfile}
+            tryOnData={tryOnData}
+            loading={loading}
+            onTryOnChange={handleTryOnChange}
+            onSubmit={handleTryOnSubmit}
+          />
+          <ResultBox result={tryOnResult} />
         </div>
-      </section>
+      )}
+
+      <footer>
+        <p>Powered by Magic Hour AI</p>
+      </footer>
     </div>
   );
 }
