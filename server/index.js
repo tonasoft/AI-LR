@@ -1,7 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import { load } from "cheerio";
+import { getMetadata } from "./url-preview.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,36 +10,6 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 const magicHourApiKey = process.env.MAGIC_HOUR_API_KEY;
-
-const getMetadata = async (url) => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
-
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "AI-Launch-Roast/1.0"
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error("fetch_failed");
-    }
-
-    const html = await response.text();
-    const $ = load(html);
-    const title = $("title").first().text().trim();
-    const description =
-      $("meta[name=description]").attr("content")?.trim() ||
-      $("meta[property='og:description']").attr("content")?.trim() ||
-      "";
-
-    return { title, description };
-  } finally {
-    clearTimeout(timeout);
-  }
-};
 
 app.post("/api/preview", async (req, res) => {
   const { url } = req.body;
